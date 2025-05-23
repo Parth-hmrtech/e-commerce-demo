@@ -1,14 +1,15 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { Pool } = require('pg');
 
-// Directly set DB config without using environment variables
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'ecommerce-demo',
-  password: 'postgres',  // must be a string
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASS,
+  port: Number(process.env.DB_PORT),
 });
 
-console.log('DB_PASS: postgres');  // hardcoded debug
+console.log('DB_PASS:', process.env.DB_PASS);  // debug to check if env var loaded
 
 module.exports = pool;

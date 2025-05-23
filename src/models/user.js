@@ -16,15 +16,15 @@ module.exports = {
     return res.rows[0];
   },
 
-  async findById(id) {
-    const res = await pool.query(
-      `SELECT id, first_name, last_name, email, role, phone_number, created_at 
-       FROM users 
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [id]
-    );
-    return res.rows[0];
-  },
+  // async findById(id) {
+  //   const res = await pool.query(
+  //     `SELECT id, first_name, last_name, email, role, phone_number, created_at 
+  //      FROM users 
+  //      WHERE id = $1 AND deleted_at IS NULL`,
+  //     [id]
+  //   );
+  //   return res.rows[0];
+  // },
 
   async updateName(id, first_name, last_name) {
     await pool.query(
@@ -39,4 +39,14 @@ module.exports = {
       [password_hash, id]
     );
   },
+  async findById(id) {
+  const res = await pool.query(
+    `SELECT id, first_name, last_name, email, password_hash, role, phone_number, created_at 
+     FROM users 
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [id]
+  );
+  return res.rows[0];
+}
+
 };

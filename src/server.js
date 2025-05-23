@@ -1,9 +1,11 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+console.log(process.env.PORT); // Correct
 
 const app = require('./app');
 const pool = require('./config/db');
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT ;
 
 pool.connect()
   .then(() => {
@@ -13,4 +15,3 @@ pool.connect()
   .catch((err) => {
     console.error('Connection failed', err);
   });
-  

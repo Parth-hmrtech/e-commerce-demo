@@ -3,6 +3,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
 
 exports.verifySessionJWT = (req, res, next) => {
   const token = req.session?.token;
+console.log(token);
 
   if (!token) {
     // No token in session, user not logged in
