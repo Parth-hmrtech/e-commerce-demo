@@ -4,45 +4,32 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { generateToken } = require('../utils/tokenHelper');
 const { sendResetPasswordEmail } = require('../services/emailService');
-const pool = require('../config/db');
+const dbConnect = require('../config/db');
 const JWT_SECRET = process.env.JWT_SECRET;
+// console.log(generateToken);
+
 exports.register = async (req, res) => {
-    const {
-        first_name,
-        last_name,
-        email,
-        password,
-        role = 'buyer',
-        phone_number,
-    } = req.body;
-
-    // Basic validation
-    if (!password || typeof password !== 'string') {
-        return res.status(400).json({ error: 'Password is required and must be a string' });
-    }
-
+    const first_name = req.body.first_name;
+    const last_name = req.body.last_name;
+    const email = req.body.email;
+    const password = req.body.password;
+    const role = req.body.role;
+    const phone_number = req.body.phone_number;
+    // console.log(phone_number);
     try {
-        // Rest of your code
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
             return res.status(400).json({ error: 'Email already exists' });
         }
-
         const password_hash = await bcrypt.hash(password, 10);
-
-        const newUser = await User.create({
-            first_name,
-            last_name,
-            email,
-            password_hash,
-            role,
-            phone_number,
-        });
+        console.log(password_hash);
+        const newUser = await User.registerUser({ first_name, last_name, email, password_hash, role, phone_number });
 
         res.status(201).json({
             message: 'User registered successfully',
             user: newUser,
         });
+
     } catch (err) {
         console.error('Register error:', err);
         res.status(500).json({ error: err.message || 'Something went wrong' });
@@ -50,52 +37,78 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+    const loginEmail = req.body.email;
+    const loginPassword = req.body.password;
+    console.log(loginEmail);
+    console.log(loginPassword);
+    try {
 
-  try {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL',
-      [email]
-    );
+        const existingUser = await User.findByEmail(loginEmail);
+        const email = existingUser.email;
+        const password = existingUser.password_hash;
+        console.log(email);
+        console.log(password);
 
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid email or password' });
+        const isMatch = await bcrypt.compare(loginPassword, password);
+        console.log("match ", isMatch);
+
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
+
+
+
+
+        //    console.log(existingUser);
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+        // const password = user.password_hash;
+        console.log(password);
+
+
+        // const result = await dbConnect.query(`SELECT * FROM users WHERE email = ${email}`);
+
+        // if (result.rows.length === 0) {
+        //     return res.status(400).json({ error: 'Invalid email or password' });
+        // }
+        // console.log(user.password_hash);
+
+        // const user = result.rows[0];
+
+        if (!password || !user.password_hash) {
+            return res.status(400).json({ error: 'Password not provided or missing from database' });
+        }
+
+        // const isMatch = await bcrypt.compare(password, user.password_hash);
+
+        // if (!isMatch) {
+        //     return res.status(400).json({ error: 'Invalid email or password' });
+        // }
+
+        // ✅ Create JWT token (1 hour validity)
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // ✅ Store token in session
+        req.session.token = token;
+
+        // ✅ Optionally store user ID or role too
+        req.session.userId = user.id;
+
+        // ✅ Ensure cookie session matches token life
+        // req.session.cookie.maxAge = 60 * 60 * 1000; // 1 hour
+
+        return res.status(200).json({ message: 'Login successful' });
+    } catch (err) {
+        console.error('Login error:', err);
+        return res.status(500).json({ error: 'Something went wrong' });
     }
-
-    const user = result.rows[0];
-
-    if (!password || !user.password_hash) {
-      return res.status(400).json({ error: 'Password not provided or missing from database' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid email or password' });
-    }
-
-    // ✅ Create JWT token (1 hour validity)
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    // ✅ Store token in session
-    req.session.token = token;
-
-    // ✅ Optionally store user ID or role too
-    req.session.userId = user.id;
-
-    // ✅ Ensure cookie session matches token life
-    // req.session.cookie.maxAge = 60 * 60 * 1000; // 1 hour
-
-    return res.status(200).json({ message: 'Login successful' });
-  } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ error: 'Something went wrong' });
-  }
 };
-
 
 exports.logout = (req, res) => {
     if (!req.session || !req.session.token) {
@@ -130,28 +143,26 @@ exports.profile = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-  try {
-    const { first_name, last_name, email, phone_number } = req.body;
+    try {
+        const { first_name, last_name, email, phone_number } = req.body;
 
-    if (!first_name || !last_name || !email || !phone_number) {
-      return res.status(400).json({ error: 'All fields are required' });
+        if (!first_name || !last_name || !email || !phone_number) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        await User.updateProfile(req.user.id, {
+            first_name,
+            last_name,
+            email,
+            phone_number
+        });
+
+        res.json({ message: 'Profile updated successfully' });
+    } catch (err) {
+        console.error('Update profile error:', err);
+        res.status(500).json({ error: 'Something went wrong' });
     }
-
-    await User.updateProfile(req.user.id, {
-      first_name,
-      last_name,
-      email,
-      phone_number
-    });
-
-    res.json({ message: 'Profile updated successfully' });
-  } catch (err) {
-    console.error('Update profile error:', err);
-    res.status(500).json({ error: 'Something went wrong' });
-  }
 };
-
-
 
 exports.forgotPassword = async (req, res) => {
     try {
@@ -180,36 +191,38 @@ exports.forgotPassword = async (req, res) => {
 };
 
 exports.resetPassword = async (req, res) => {
-  const { userId, oldPassword, newPassword } = req.body;
+    const { userId, oldPassword, newPassword } = req.body;
 
-  if (!userId || !oldPassword || !newPassword) {
-    return res.status(400).json({
-      message: 'User ID, old password, and new password are required.'
-    });
-  }
-
-  try {
-    const user = await User.findById(userId, true); // Include password
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+    if (!userId || !oldPassword || !newPassword) {
+        return res.status(400).json({
+            message: 'User ID, old password, and new password are required.'
+        });
     }
 
-    if (!user.password_hash) {
-      return res.status(400).json({ message: 'Password data missing for user.' });
+    try {
+        const user = await User.findById(userId, true); // Include password
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        if (!user.password_hash) {
+            return res.status(400).json({ message: 'Password data missing for user.' });
+        }
+
+        const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Old password is incorrect.' });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+        await User.resetPassword(userId, newPasswordHash);
+
+        res.json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        console.error('Reset password error:', err.message);
+        res.status(500).json({ message: 'Server error. Please try again later.' });
     }
-
-    const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Old password is incorrect.' });
-    }
-
-    const newPasswordHash = await bcrypt.hash(newPassword, 10);
-    await User.resetPassword(userId, newPasswordHash);
-
-    res.json({ message: 'Password updated successfully.' });
-  } catch (err) {
-    console.error('Reset password error:', err.message);
-    res.status(500).json({ message: 'Server error. Please try again later.' });
-  }
 };
+
+
