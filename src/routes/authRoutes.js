@@ -9,6 +9,6 @@ router.post('/logout', authController.logout);
 router.get('/profile', verifySessionJWT, authController.profile);
 router.put('/profile', verifySessionJWT, authController.updateProfile);
 router.post('/forgot-password', authController.forgotPassword);
-router.post('/reset-password', authController.resetPassword);
+router.post('/reset-password', verifySessionJWT, authController.resetPassword);
 
 module.exports = router;

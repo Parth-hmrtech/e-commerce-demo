@@ -4,18 +4,23 @@ const authRoutes = require('./routes/authRoutes');
 require('dotenv').config();
 
 const app = express();
+
 app.use(express.json());
 
-
+// ✅ Set up session middleware
 app.use(session({
-  secret: 'your_session_secret',
+  secret: process.env.SESSION_SECRET || 'your_session_secret', // better to use .env
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 2 * 60 * 1000 } // 2 minutes
+  cookie: {
+    maxAge: 60 * 60 * 1000, // 1 hour in milliseconds
+    httpOnly: true,         // helps prevent XSS
+    secure: false           // set to true if using HTTPS
+  }
 }));
 
-// Then your routes and middleware
+// ✅ Mount your auth routes
 app.use('/auth', authRoutes);
 
-
-module.exports = app
+module.exports = app;
+  
